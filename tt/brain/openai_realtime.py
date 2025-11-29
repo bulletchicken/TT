@@ -1,13 +1,11 @@
 import time
 import base64
 import threading
-import audioop
 
 import pyaudio
-
-from ..config import OPENAI_API_KEY
-from ..utils.audio_interface_openai import AudioIO
-from ..utils.realtime_socket import RealtimeSocket
+from tt.config import OPENAI_API_KEY
+from tt.utils.audio_interface_openai import AudioIO
+from tt.utils.realtime_socket import RealtimeSocket
 
 # -------------------------------------------------------------------
 # Config
@@ -21,6 +19,11 @@ SILENCE_SECONDS = 0.8      # how long of silence ends an utterance
 MODEL = "gpt-realtime-mini"
 VOICE = "ballad"
 INSTRUCTIONS = "You are a helpful, friendly assistant."
+
+# VAD (Voice Activity Detection) Configuration
+VAD_THRESHOLD = 0.5
+VAD_CREATE_RESPONSE = True
+VAD_INTERRUPT_RESPONSE = True
 
 
 # -------------------------------------------------------------------
@@ -76,12 +79,18 @@ class RealtimeConversation:
         typ = msg.get("type")
 
         if typ == "session.created":
-            # Configure voice + instructions once when the session starts
+            # Configure voice + instructions + VAD once when the session starts
             self.sock.send({
                 "type": "session.update",
                 "session": {
                     "voice": VOICE,
                     "instructions": INSTRUCTIONS,
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": VAD_THRESHOLD,
+                        "create_response": VAD_CREATE_RESPONSE,
+                        "interrupt_response": VAD_INTERRUPT_RESPONSE,
+                    },
                 },
             })
 
@@ -130,4 +139,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

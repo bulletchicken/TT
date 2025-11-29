@@ -1,7 +1,7 @@
 from elevenlabs.client import ElevenLabs
 from elevenlabs.play import play
 
-from config import ELEVENLABS_API_KEY
+from tt.config import ELEVENLABS_API_KEY
 
 elevenlabs = ElevenLabs(
   api_key=ELEVENLABS_API_KEY,
@@ -16,5 +16,4 @@ audio = elevenlabs.text_to_speech.convert(
 
 def play_audio():
     play(audio)
-
 
