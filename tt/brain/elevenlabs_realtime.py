@@ -3,8 +3,8 @@ import signal
 from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import Conversation
 
-from ..config import ELEVENLABS_AGENT_ID, ELEVENLABS_API_KEY
-from ..utils.audio_interface import PyAudioInterface
+from tt.config import ELEVENLABS_AGENT_ID, ELEVENLABS_API_KEY
+from tt.utils.audio_interface import PyAudioInterface
 
 elevenlabs = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
