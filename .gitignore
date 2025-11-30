@@ -1,5 +1,6 @@
 # Virtual environment
 venv/
+.venv/
 
 # Python cache files
 __pycache__/
@@ -14,3 +15,7 @@ build/
 
 # Environment variables
 .env
+
+# Conversation logs (keep folder, ignore contents)
+conversation_logs/*
+!conversation_logs/.gitkeep
