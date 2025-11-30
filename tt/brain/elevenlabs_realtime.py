@@ -5,7 +5,8 @@ from elevenlabs.conversational_ai.conversation import Conversation, ClientTools
 
 from tt.config import ELEVENLABS_AGENT_ID, ELEVENLABS_API_KEY
 from tt.utils.audio_interface import PyAudioInterface
-from tt.brain.tools.tools import register_with_elevenlabs
+import tt.brain.tools  # Register tools on import
+from tt.brain.handlers.tools_plug import register_with_elevenlabs
 
 elevenlabs = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 

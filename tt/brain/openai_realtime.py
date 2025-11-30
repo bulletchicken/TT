@@ -8,7 +8,8 @@ import pyaudio
 from tt.config import OPENAI_API_KEY
 from tt.utils.audio_interface_openai import AudioIO
 from tt.utils.realtime_socket import RealtimeSocket
-from tt.brain.tools.tools import get_tool_definitions
+import tt.brain.tools  # Register tools on import
+from tt.brain.handlers.tools_plug import get_tool_definitions
 from tt.brain.conversation_log import ConversationLog
 from tt.brain.handlers import find_and_run
 
@@ -24,6 +25,7 @@ MODEL = "gpt-realtime-mini"
 VOICE = "ballad"
 INSTRUCTIONS = "You are a helpful, friendly assistant."
 VAD_THRESHOLD = 0.5
+#other model to try: whisper-1 but is 2x the cost but still $0.006 / minute
 INPUT_AUDIO_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"
 
 

@@ -1,7 +1,7 @@
 """Handlers for function/tool call events."""
 
 import json
-from tt.brain.tools.tools import run_tool
+from tt.brain.handlers.tools_plug import run_tool
 
 
 def on_function_call_args_delta(conv, msg: dict):
