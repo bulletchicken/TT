@@ -24,7 +24,7 @@ MODEL = "gpt-realtime-mini"
 VOICE = "ballad"
 INSTRUCTIONS = "You are a helpful, friendly assistant."
 VAD_THRESHOLD = 0.5
-INPUT_AUDIO_TRANSCRIPTION_MODEL = "whisper-1"
+INPUT_AUDIO_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"
 
 
 # -------------------------------------------------------------------
