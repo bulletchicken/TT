@@ -6,7 +6,7 @@ load_dotenv()
 
 
 # ElevenLabs Configuration
-ELEVENLABS_AGENT_ID = os.getenv("ELEVENLABS_AGENT_ID", "CLKwTKSevLlbgdxuHxTV")
+ELEVENLABS_AGENT_ID = os.getenv("ELEVENLABS_AGENT_ID", "agent_3601kb6wrdbxe3ks35npx1dnsyk5")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 # OpenAI Configuration

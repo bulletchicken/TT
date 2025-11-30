@@ -1,12 +1,19 @@
 import signal
 
 from elevenlabs.client import ElevenLabs
-from elevenlabs.conversational_ai.conversation import Conversation
+from elevenlabs.conversational_ai.conversation import Conversation, ClientTools
 
 from tt.config import ELEVENLABS_AGENT_ID, ELEVENLABS_API_KEY
 from tt.utils.audio_interface import PyAudioInterface
+from tt.brain.tools.tools import register_with_elevenlabs
 
 elevenlabs = ElevenLabs(api_key=ELEVENLABS_API_KEY)
+
+client_tools = ClientTools()
+#I'll register the tools with this function that goes through all the functions and makes them available...
+register_with_elevenlabs(client_tools)
+
+
 
 conversation = Conversation(
     # API client and agent ID.
@@ -26,10 +33,8 @@ conversation = Conversation(
 
     # Uncomment if you want to see latency measurements.
     callback_latency_measurement=lambda latency: print(f"Latency: {latency}ms"),
+    client_tools=client_tools,
 )
-
-
-
 
 def play_audio():
     conversation.start_session()

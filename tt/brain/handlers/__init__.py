@@ -16,7 +16,7 @@ from tt.brain.handlers.transcript import (
     on_user_transcript_completed,
     on_user_transcript_failed,
 )
-from tt.brain.handlers.tool_calls import (
+from tt.brain.handlers.websocket_tool_calls import (
     on_function_call_args_delta,
     on_function_call_args_done,
 )
@@ -35,9 +35,9 @@ HANDLERS = {
 }
 
 
-def dispatch(conv, msg: dict) -> bool:
+def find_and_run(conv, msg: dict) -> bool:
     """
-    Dispatch a message to its handler.
+    Find the right handler for this message type and run it.
     Returns True if handled, False otherwise.
     """
     handler = HANDLERS.get(msg.get("type"))

@@ -5,50 +5,40 @@ import threading
 import pyaudio
 from elevenlabs.conversational_ai.conversation import AudioInterface
 
+# ElevenLabs expects 16kHz 16-bit PCM mono for both input and output
+ELEVENLABS_RATE = 16000
+
 
 class PyAudioInterface(AudioInterface):
     def __init__(self):
-        self.pyaudio = pyaudio
-        self.input_sample_rate = 16000
-        self.output_sample_rate = 44100
-        self.input_frames_per_buffer = 4000  # 250 ms @ 16 kHz
-        self.output_frames_per_buffer = 2756  # ~62.5 ms @ 44.1 kHz
+        # Detect hardware sample rate
+        p = pyaudio.PyAudio()
+        info = p.get_default_output_device_info()
+        self.hw_rate = int(info.get('defaultSampleRate', 48000))
+        p.terminate()
+        print(f"🔊 Hardware sample rate: {self.hw_rate} Hz")
 
-        self.input_callback = None
-        self.output_queue = None
-        self.should_stop = None
-        self.output_thread = None
         self.p = None
         self.in_stream = None
         self.out_stream = None
+        self.output_queue = queue.Queue()
+        self.stop_event = threading.Event()
+        self.resample_state = None
         self.ducking = False
 
     def start(self, input_callback):
         self.input_callback = input_callback
-        self.output_queue = queue.Queue()
-        self.should_stop = threading.Event()
-        self.output_thread = threading.Thread(target=self._output_thread, daemon=True)
+        self.p = pyaudio.PyAudio()
 
-        self.p = self.pyaudio.PyAudio()
         self.in_stream = self.p.open(
-            format=self.pyaudio.paInt16,
-            channels=1,
-            rate=self.input_sample_rate,
-            input=True,
-            stream_callback=self._in_callback,
-            frames_per_buffer=self.input_frames_per_buffer,
-            start=True,
+            format=pyaudio.paInt16, channels=1, rate=ELEVENLABS_RATE,
+            input=True, frames_per_buffer=4000,
+            stream_callback=self._on_mic_data,
         )
         self.out_stream = self.p.open(
-            format=self.pyaudio.paInt16,
-            channels=1,
-            rate=self.output_sample_rate,
-            output=True,
-            frames_per_buffer=self.output_frames_per_buffer,
-            start=True,
+            format=pyaudio.paInt16, channels=1, rate=self.hw_rate, output=True,
         )
-
-        self.output_thread.start()
+        threading.Thread(target=self._play_loop, daemon=True).start()
 
     def stop(self):
         if self.should_stop:
@@ -65,38 +55,31 @@ class PyAudioInterface(AudioInterface):
             self.p.terminate()
 
     def output(self, audio: bytes):
-        if self.output_queue:
-            self.output_queue.put(audio)
+        # Resample 16kHz → hardware rate
+        if ELEVENLABS_RATE != self.hw_rate:
+            audio, self.resample_state = audioop.ratecv(
+                audio, 2, 1, ELEVENLABS_RATE, self.hw_rate, self.resample_state
+            )
+        self.output_queue.put(audio)
 
     def interrupt(self):
-        if not self.output_queue:
-            return
-        try:
-            while True:
-                self.output_queue.get_nowait()
-        except queue.Empty:
-            pass
-
-    def _output_thread(self):
-        if not self.output_queue or not self.out_stream or not self.should_stop:
-            return
-        while not self.should_stop.is_set():
+        while not self.output_queue.empty():
             try:
-                audio = self.output_queue.get(timeout=0.25)
+                self.output_queue.get_nowait()
+            except queue.Empty:
+                break
+        self.resample_state = None
+
+    def _play_loop(self):
+        while not self.stop_event.is_set():
+            try:
+                audio = self.output_queue.get(timeout=0.2)
                 self.ducking = True
                 self.out_stream.write(audio)
             except queue.Empty:
                 self.ducking = False
-                continue
-            
-    def _in_callback(self, in_data, frame_count, time_info, status):
-        data = in_data
-        if self.ducking:
-            try:
-                data = audioop.mul(in_data, 2, 0.1)  # -20 dB while TTS is playing
-            except Exception:
-                data = in_data
-        if self.input_callback:
-            self.input_callback(data)
-        return (None, self.pyaudio.paContinue)
 
+    def _on_mic_data(self, in_data, frame_count, time_info, status):
+        data = audioop.mul(in_data, 2, 0.1) if self.ducking else in_data
+        self.input_callback(data)
+        return (None, pyaudio.paContinue)

@@ -8,9 +8,9 @@ import pyaudio
 from tt.config import OPENAI_API_KEY
 from tt.utils.audio_interface_openai import AudioIO
 from tt.utils.realtime_socket import RealtimeSocket
-from tt.brain.tools.tools import TOOL_DEFINITIONS
+from tt.brain.tools.tools import get_tool_definitions
 from tt.brain.conversation_log import ConversationLog
-from tt.brain.handlers import dispatch
+from tt.brain.handlers import find_and_run
 
 # -------------------------------------------------------------------
 # Config
@@ -75,7 +75,7 @@ class RealtimeConversation:
                 "session": {
                     "voice": VOICE,
                     "instructions": INSTRUCTIONS,
-                    "tools": TOOL_DEFINITIONS,
+                    "tools": get_tool_definitions(),
                     "tool_choice": "auto",
                     "input_audio_transcription": {"model": INPUT_AUDIO_TRANSCRIPTION_MODEL},
                     "turn_detection": {"type": "server_vad", "threshold": VAD_THRESHOLD},
@@ -88,8 +88,8 @@ class RealtimeConversation:
             print(f"\n❌ Server error: {msg.get('error')}")
             return
 
-        # Dispatch to registered handlers
-        dispatch(self, msg)
+        # Find and run the right handler function for what to do based on this resopnse message type
+        find_and_run(self, msg)
 
     def stop(self):
         self.running = False
@@ -103,8 +103,6 @@ class RealtimeConversation:
 # -------------------------------------------------------------------
 
 def main():
-    if not OPENAI_API_KEY:
-        raise RuntimeError("OPENAI_API_KEY not found in environment (.env)")
 
     conv = RealtimeConversation(OPENAI_API_KEY)
     conv.start()
