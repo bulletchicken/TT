@@ -1,46 +1,48 @@
-import pvporcupine
-import pyaudio
 import struct
 
-from tt.config import PORCUPINE_ACCESS_KEY
+import pvporcupine
+import pyaudio
+
 from tt.brain.elevenlabs_realtime import play_audio
+from tt.config import PORCUPINE_ACCESS_KEY
 
 if not PORCUPINE_ACCESS_KEY:
     raise RuntimeError("PORCUPINE_ACCESS_KEY not found in environment (.env)")
 
 porcupine = pvporcupine.create(
-  access_key=PORCUPINE_ACCESS_KEY,
-  keyword_paths=['tt/brain/models/wake_model_hey_ted.ppn']
+    access_key=PORCUPINE_ACCESS_KEY,
+    keyword_paths=["tt/brain/models/wake_model_hey_ted.ppn"],
 )
 
 paud = pyaudio.PyAudio()
 audio_stream = paud.open(
-  rate=porcupine.sample_rate, 
-  channels=1, 
-  format=pyaudio.paInt16, 
-  input=True,
-  frames_per_buffer=porcupine.frame_length
+    rate=porcupine.sample_rate,
+    channels=1,
+    format=pyaudio.paInt16,
+    input=True,
+    frames_per_buffer=porcupine.frame_length,
 )
 
+
 def get_next_audio_frame():
-  pcm = audio_stream.read(porcupine.frame_length)
-  pcm = struct.unpack_from("h" * porcupine.frame_length, pcm)
-  return pcm
+    pcm = audio_stream.read(porcupine.frame_length)
+    pcm = struct.unpack_from("h" * porcupine.frame_length, pcm)
+    return pcm
 
 
 print("Listening for wakeword...")
 
-#running here
+# running here
 try:
-  while True:
-    audio_frame = get_next_audio_frame()
-    keyword_index = porcupine.process(audio_frame)
-    if keyword_index >= 0:
-      play_audio()
-      break
+    while True:
+        audio_frame = get_next_audio_frame()
+        keyword_index = porcupine.process(audio_frame)
+        if keyword_index >= 0:
+            play_audio()
+            break
 
-#when turned off
+# when turned off
 finally:
-  audio_stream.close()
-  paud.terminate()
-  porcupine.delete()
+    audio_stream.close()
+    paud.terminate()
+    porcupine.delete()

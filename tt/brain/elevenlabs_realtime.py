@@ -1,4 +1,5 @@
 import signal
+import time
 
 from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import Conversation, ClientTools
@@ -13,7 +14,6 @@ elevenlabs = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 client_tools = ClientTools()
 #I'll register the tools with this function that goes through all the functions and makes them available...
 register_with_elevenlabs(client_tools)
-
 
 
 conversation = Conversation(
@@ -39,4 +39,13 @@ conversation = Conversation(
 
 def play_audio():
     conversation.start_session()
-    print("Session started.")
+    print("Session started. Press Ctrl+C to stop.")
+    try:
+        # Keep the process alive so tool callbacks can run; otherwise the
+        # interpreter can shut down before ElevenLabs finishes using the tool.
+        while conversation.session_id is not None:
+            time.sleep(0.5)
+        # If session_id isn't set, fall back to waiting for a signal.
+        signal.pause()
+    except KeyboardInterrupt:
+        print("Stopping session...")

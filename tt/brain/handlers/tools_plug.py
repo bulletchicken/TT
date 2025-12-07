@@ -17,7 +17,7 @@ To add a new tool, create a file in tt/brain/tools/ and decorate a function with
 The tool is automatically available to both OpenAI and ElevenLabs.
 """
 
-# Global registry: name -> {"fn": callable, "definition": dict}
+# Global registry: name -> {"the_actual_function": callable, "definition": dict}
 _REGISTRY = {}
 
 
@@ -30,8 +30,8 @@ def tool(description: str, parameters: dict | None = None):
         parameters: Dict of param_name -> {"type": str, "description": str, "required": bool}
                    If None, the tool takes no parameters.
     """
-    def decorator(fn):
-        name = fn.__name__
+    def decorator(the_actual_function):
+        name = the_actual_function.__name__
         
         # Build OpenAI-compatible parameter schema
         props = {}
@@ -55,8 +55,8 @@ def tool(description: str, parameters: dict | None = None):
             },
         }
         
-        _REGISTRY[name] = {"fn": fn, "definition": definition}
-        return fn
+        _REGISTRY[name] = {"the_actual_function": the_actual_function, "definition": definition}
+        return the_actual_function
     
     return decorator
 
@@ -71,9 +71,16 @@ def get_tool_definitions():
 
 
 def register_with_elevenlabs(client_tools):
-    """Register all tools with an ElevenLabs ClientTools instance."""
+    """
+    Register all tools with an ElevenLabs ClientTools instance.
+
+    Example:
+        client_tools.register("get_weather", callable)
+
+    The first argument is the tool name (string); the second is the callable.
+    """
     for name, entry in _REGISTRY.items():
-        client_tools.register(name, entry["fn"])
+        client_tools.register(name, entry["the_actual_function"])
 
 
 def run_tool(tool_name: str, args: dict):
@@ -81,5 +88,4 @@ def run_tool(tool_name: str, args: dict):
     entry = _REGISTRY.get(tool_name)
     if not entry:
         raise ValueError(f"Unknown tool: {tool_name}")
-    return entry["fn"](**(args or {}))
-
+    return entry["the_actual_function"](**(args or {}))
