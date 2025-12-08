@@ -4,12 +4,14 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from tt.brain.hippocampus import memorize
+
 DEFAULT_LOG_DIR = Path("conversation_logs")
 
 
 class ConversationLog:
     """Tracks conversation history and saves to JSON."""
-    
+
     def __init__(self, model: str, voice: str, log_dir: Path = DEFAULT_LOG_DIR):
         self.model = model
         self.voice = voice
@@ -37,27 +39,6 @@ class ConversationLog:
         self.add("tool_result", tool_name=tool_name, output=output)
 
     def save(self):
-        """Save conversation to a JSON file."""
-        if not self.messages:
-            print("No conversation to save.")
-            return
-
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        filename = self.log_dir / f"conversation_{self.session_start:%Y%m%d_%H%M%S}.json"
-        
         session_end = datetime.now()
         duration = session_end - self.session_start
-        duration_seconds = int(duration.total_seconds())
-
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump({
-                "session_start": self.session_start.isoformat(),
-                "session_end": session_end.isoformat(),
-                "duration_seconds": duration_seconds,
-                "model": self.model,
-                "voice": self.voice,
-                "messages": self.messages,
-            }, f, indent=2, ensure_ascii=False)
-
-        print(f"💾 Conversation saved to: {filename}")
-
+        memorize(self.model, duration, self.messages, self.session_start, session_end)

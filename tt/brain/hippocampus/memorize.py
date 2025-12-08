@@ -1,13 +1,22 @@
 from tt.brain.hippocampus.utils.embed import embed
+from tt.brain.hippocampus.utils.highlights import highlight
 from tt.brain.hippocampus.utils.store import store
 
 from .utils.summarize import summarize
+
+
+def create_highlights(detailed_conversation):
+    highlights = highlight(detailed_conversation)
+    for one_highlight in highlights:
+        embedding = embed(one_highlight)
 
 
 def memorize(model, duration, detailed_conversation, session_start, session_end):
     summary = summarize(detailed_conversation)
     print(summary)
     embedding = embed(summary)
+
+    # stores to both tables, memories and highlights
     store(
         model,
         duration,
