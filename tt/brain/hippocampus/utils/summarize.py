@@ -7,7 +7,7 @@ def summarize(messages):
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     prompt = (
-        "Provide a concise (<=3 sentences) summary of this conversation that "
+        "Provide a concise summary of this conversation that "
         "captures key events and emotions. Here is the message:\n"
         f"{messages}"
     )
