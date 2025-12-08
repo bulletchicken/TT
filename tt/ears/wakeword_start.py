@@ -3,7 +3,7 @@ import struct
 import pvporcupine
 import pyaudio
 
-from tt.brain.elevenlabs_realtime import play_audio
+from tt.brain.prefrontal_cortex.elevenlabs_realtime import play_audio
 from tt.config import PORCUPINE_ACCESS_KEY
 
 if not PORCUPINE_ACCESS_KEY:
@@ -11,7 +11,7 @@ if not PORCUPINE_ACCESS_KEY:
 
 porcupine = pvporcupine.create(
     access_key=PORCUPINE_ACCESS_KEY,
-    keyword_paths=["tt/brain/models/wake_model_hey_ted.ppn"],
+    # keyword_paths=["tt/brain/models/wake_model_hey_ted.ppn"],
 )
 
 paud = pyaudio.PyAudio()

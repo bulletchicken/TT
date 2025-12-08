@@ -1,17 +1,18 @@
 """OpenAI Realtime API conversation controller."""
 
-import time
 import base64
 import threading
+import time
 
 import pyaudio
+
+import tt.brain.tools  # Register tools on import
+from tt.brain.handlers import find_and_run
+from tt.brain.handlers.conversation_log import ConversationLog
+from tt.brain.handlers.tools_plug import get_tool_definitions
 from tt.config import OPENAI_API_KEY
 from tt.utils.audio_interface_openai import AudioIO
 from tt.utils.realtime_socket import RealtimeSocket
-import tt.brain.tools  # Register tools on import
-from tt.brain.handlers.tools_plug import get_tool_definitions
-from tt.brain.conversation_log import ConversationLog
-from tt.brain.handlers import find_and_run
 
 # -------------------------------------------------------------------
 # Config
@@ -25,7 +26,7 @@ MODEL = "gpt-realtime-mini"
 VOICE = "ballad"
 INSTRUCTIONS = (
     "You are a snarky, sassy, witty, funny teddy bear with an attitude. Don't be overly excited, more of a sarcastic tone. "
-    "You are named \"TED\".\n\n"
+    'You are named "TED".\n\n'
     "While your vocabulary is american, you speak in a slight british accent. Talk in a deep voice."
     "# Tone\n\n"
     "Your responses are short, to the point, and dripping with sarcasm. "
@@ -33,13 +34,14 @@ INSTRUCTIONS = (
     "You should use playful insults and backhanded compliments."
 )
 VAD_THRESHOLD = 0.5
-#other model to try: whisper-1 but is 2x the cost but still $0.006 / minute
+# other model to try: whisper-1 but is 2x the cost but still $0.006 / minute
 INPUT_AUDIO_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"
 
 
 # -------------------------------------------------------------------
 # Controller
 # -------------------------------------------------------------------
+
 
 class RealtimeConversation:
     def __init__(self, api_key: str):
@@ -51,27 +53,31 @@ class RealtimeConversation:
         )
         self.running = True
         self.log = ConversationLog(MODEL, VOICE)
-        
+
         # Buffers for streaming data
-        self.transcript_buffers = {}   # AI transcript chunks
+        self.transcript_buffers = {}  # AI transcript chunks
         self.transcript_printed = set()
-        self.tool_arg_buffers = {}     # Tool call argument chunks
+        self.tool_arg_buffers = {}  # Tool call argument chunks
 
     def start(self):
         self.sock.connect()
         self.audio.start()
         threading.Thread(target=self._mic_loop, daemon=True).start()
-        print("🎧 Realtime conversation started. Speak into your mic... (Ctrl+C to quit)")
+        print(
+            "🎧 Realtime conversation started. Speak into your mic... (Ctrl+C to quit)"
+        )
 
     def _mic_loop(self):
         """Stream mic audio to OpenAI. Server VAD handles speech detection."""
         while self.running:
             chunk = self.audio.read_mic_chunk()
             if chunk:
-                self.sock.send({
-                    "type": "input_audio_buffer.append",
-                    "audio": base64.b64encode(chunk).decode("utf-8"),
-                })
+                self.sock.send(
+                    {
+                        "type": "input_audio_buffer.append",
+                        "audio": base64.b64encode(chunk).decode("utf-8"),
+                    }
+                )
             time.sleep(0.01)
 
     def _on_msg(self, msg: dict):
@@ -80,17 +86,24 @@ class RealtimeConversation:
 
         # Session setup
         if typ == "session.created":
-            self.sock.send({
-                "type": "session.update",
-                "session": {
-                    "voice": VOICE,
-                    "instructions": INSTRUCTIONS,
-                    "tools": get_tool_definitions(),
-                    "tool_choice": "auto",
-                    "input_audio_transcription": {"model": INPUT_AUDIO_TRANSCRIPTION_MODEL},
-                    "turn_detection": {"type": "server_vad", "threshold": VAD_THRESHOLD},
-                },
-            })
+            self.sock.send(
+                {
+                    "type": "session.update",
+                    "session": {
+                        "voice": VOICE,
+                        "instructions": INSTRUCTIONS,
+                        "tools": get_tool_definitions(),
+                        "tool_choice": "auto",
+                        "input_audio_transcription": {
+                            "model": INPUT_AUDIO_TRANSCRIPTION_MODEL
+                        },
+                        "turn_detection": {
+                            "type": "server_vad",
+                            "threshold": VAD_THRESHOLD,
+                        },
+                    },
+                }
+            )
             return
 
         # Error handling
@@ -112,8 +125,8 @@ class RealtimeConversation:
 # Entry point
 # -------------------------------------------------------------------
 
-def main():
 
+def main():
     conv = RealtimeConversation(OPENAI_API_KEY)
     conv.start()
     try:
@@ -126,4 +139,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
