@@ -3,15 +3,17 @@ from tt.brain.hippocampus.utils.embed import embed
 
 
 def recall(message):
-    memories = supabase.rpc(
-        "match_documents",
+    response = supabase.rpc(
+        "find_highlights",
         {
-            "query_embedding": embed(message),
+            # Supabase RPC expects a single embedding vector, not a list
+            "query_embedding": embed(message)[0],
             "match_threshold": 0.3,
-            "match_count": 1,
+            "match_count": 2,
         },
     ).execute()
-    return memories.data[0]["summary"]
+    # Supabase returns a list of highlight rows (may be empty)
+    return response.data or []
 
 
 if __name__ == "__main__":

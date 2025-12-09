@@ -58,6 +58,9 @@ class RealtimeConversation:
         self.transcript_buffers = {}  # AI transcript chunks
         self.transcript_printed = set()
         self.tool_arg_buffers = {}  # Tool call argument chunks
+        # Track completed user turns so tools can wait for transcripts
+        self.user_turn = 0
+        self.user_turn_condition = threading.Condition()
 
     def start(self):
         self.sock.connect()

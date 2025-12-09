@@ -1,6 +1,7 @@
 """Handlers for function/tool call events."""
 
 import json
+import threading
 
 from tt.brain.handlers.tools_plug import run_tool
 
@@ -13,7 +14,7 @@ def on_function_call_args_delta(conv, msg: dict):
 
 
 def on_function_call_args_done(conv, msg: dict):
-    """Execute tool and send result back to model."""
+    """Kick off tool execution once args streaming completes."""
     call_id = msg["call_id"]
     tool_name = msg["name"]
 
@@ -24,8 +25,27 @@ def on_function_call_args_done(conv, msg: dict):
     except json.JSONDecodeError:
         parsed_args = {}
 
-    # get_memories never needs model-sent args; always build from recent user turns.
+    threading.Thread(
+        target=_execute_tool_call,
+        args=(conv, call_id, tool_name, parsed_args),
+        daemon=True,
+    ).start()
+
+
+def _execute_tool_call(conv, call_id: str, tool_name: str, parsed_args: dict):
+    """Execute tool and send result back to model."""
     if tool_name == "get_memories":
+        start_turn = getattr(conv, "user_turn", 0)
+        condition = getattr(conv, "user_turn_condition", None)
+        if condition:
+            with condition:
+                condition.wait_for(
+                    lambda: getattr(conv, "user_turn", 0) > start_turn
+                    or not getattr(conv, "running", False),
+                    timeout=1.0,
+                )
+
+        # get_memories never needs model-sent args; always build from recent user turns.
         user_messages = [
             entry.get("content", "")
             for entry in reversed(conv.log.messages)

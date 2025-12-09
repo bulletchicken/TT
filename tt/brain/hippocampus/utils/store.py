@@ -2,7 +2,6 @@ from tt.brain.hippocampus.supabase_client import supabase
 
 
 def store(
-    table,
     model,
     duration,
     summary,
@@ -25,6 +24,6 @@ def store(
     ).execute()
 
     for highlight, embedding in highlights_and_embeddings:
-        supabase.table("highglights").insert(
-            {"embedding": highlight, "context": embedding}
+        supabase.table("highlights").insert(
+            {"embedding": embedding, "context": highlight, "date": session_start}
         ).execute()

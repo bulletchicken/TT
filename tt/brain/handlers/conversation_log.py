@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from tt.brain.hippocampus import memorize
+from tt.brain.hippocampus.memorize import memorize
 
 DEFAULT_LOG_DIR = Path("conversation_logs")
 
