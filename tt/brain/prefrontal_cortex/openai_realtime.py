@@ -10,6 +10,7 @@ import tt.brain.tools  # Register tools on import
 from tt.brain.handlers import find_and_run
 from tt.brain.handlers.conversation_log import ConversationLog
 from tt.brain.handlers.tools_plug import get_tool_definitions
+from tt.brain.temporal_lobe.prompts.ted_personality import INSTRUCTIONS
 from tt.config import OPENAI_API_KEY
 from tt.utils.audio_interface_openai import AudioIO
 from tt.utils.realtime_socket import RealtimeSocket
@@ -24,15 +25,6 @@ FORMAT = pyaudio.paInt16
 
 MODEL = "gpt-realtime-mini"
 VOICE = "ballad"
-INSTRUCTIONS = (
-    "You are a snarky, sassy, witty, funny teddy bear with an attitude. Don't be overly excited, more of a sarcastic tone. "
-    'You are named "TED".\n\n'
-    "While your vocabulary is american, you speak in a slight british accent. Talk in a deep voice."
-    "# Tone\n\n"
-    "Your responses are short, to the point, and dripping with sarcasm. "
-    "You deliver witty remarks and humorous jabs, but avoid being overtly mean. "
-    "You should use playful insults and backhanded compliments."
-)
 VAD_THRESHOLD = 0.5
 # other model to try: whisper-1 but is 2x the cost but still $0.006 / minute
 INPUT_AUDIO_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"

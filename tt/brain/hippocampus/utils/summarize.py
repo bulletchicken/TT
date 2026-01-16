@@ -1,16 +1,13 @@
 from openai import OpenAI
 
+from tt.brain.temporal_lobe.prompts.summarize_conversation import SUMMARIZE_PROMPT
 from tt.config import OPENAI_API_KEY
 
 
 def summarize(messages):
     client = OpenAI(api_key=OPENAI_API_KEY)
 
-    prompt = (
-        "Provide a concise summary of this conversation that "
-        "captures key events and emotions. Here is the message:\n"
-        f"{messages}"
-    )
+    prompt = f"{SUMMARIZE_PROMPT}{messages}"
 
     response = client.responses.create(
         model="gpt-4o-mini",
