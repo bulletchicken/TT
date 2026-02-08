@@ -12,6 +12,7 @@ from tt.brain.handlers.conversation_log import ConversationLog
 from tt.brain.handlers.tools_plug import get_tool_definitions
 from tt.brain.temporal_lobe.prompts.ted_personality import INSTRUCTIONS
 from tt.config import OPENAI_API_KEY
+from tt.state_manager import State, StateManager
 from tt.utils.audio_interface_openai import AudioIO
 from tt.utils.realtime_socket import RealtimeSocket
 
@@ -36,7 +37,7 @@ INPUT_AUDIO_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"
 
 
 class RealtimeConversation:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, state_mgr: StateManager | None = None):
         self.audio = AudioIO(chunk_size=CHUNK_SIZE, rate=RATE, format=FORMAT)
         self.sock = RealtimeSocket(
             api_key,
@@ -45,6 +46,7 @@ class RealtimeConversation:
         )
         self.running = True
         self.log = ConversationLog(MODEL, VOICE)
+        self.state_mgr = state_mgr
 
         # Buffers for streaming data
         self.transcript_buffers = {}  # AI transcript chunks
@@ -109,15 +111,28 @@ class RealtimeConversation:
         # Find and run the right handler function for what to do based on this resopnse message type
         find_and_run(self, msg)
 
+    def wait_until_done(self):
+        """Block until the websocket connection closes."""
+        self.sock.done_event.wait()
+
     def stop(self):
+        # FUTURE FW integration: after the conversation ends and the websocket
+        # is torn down, the state manager should notify firmware to enter idle:
+        #   - Disable servo PWM (cut power so arms are free-moving, no torque)
+        #   - Stop polling MPU over I2C (no motion/gesture data needed in idle)
+        #   - Power down heart rate sensor (not needed until next conversation)
+        # The SW side then re-enters wake word listening (Porcupine).
         self.running = False
         self.audio.stop()
         self.sock.close()
         self.log.save()
 
+        if self.state_mgr:
+            self.state_mgr.transition(State.WINDING_DOWN)
+
 
 # -------------------------------------------------------------------
-# Entry point
+# Entry point (standalone, without state manager)
 # -------------------------------------------------------------------
 
 

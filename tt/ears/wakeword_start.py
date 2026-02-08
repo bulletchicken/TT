@@ -1,48 +1,62 @@
+"""
+Wake word detection using Porcupine.
+
+Provides a blocking `wait_for_wakeword()` that can be called repeatedly
+in the main lifecycle loop. Each call creates a fresh Porcupine instance
+and audio stream, listens until the wake word is detected, then cleans up
+and returns.
+"""
+
 import struct
 
 import pvporcupine
 import pyaudio
 
-from tt.brain.prefrontal_cortex.elevenlabs_realtime import play_audio
 from tt.config import PORCUPINE_ACCESS_KEY
 
-if not PORCUPINE_ACCESS_KEY:
-    raise RuntimeError("PORCUPINE_ACCESS_KEY not found in environment (.env)")
 
-porcupine = pvporcupine.create(
-    access_key=PORCUPINE_ACCESS_KEY,
-    # keyword_paths=["tt/brain/models/wake_model_hey_ted.ppn"],
-)
+def wait_for_wakeword():
+    """
+    Block until the wake word is detected, then return.
 
-paud = pyaudio.PyAudio()
-audio_stream = paud.open(
-    rate=porcupine.sample_rate,
-    channels=1,
-    format=pyaudio.paInt16,
-    input=True,
-    frames_per_buffer=porcupine.frame_length,
-)
+    Creates and tears down Porcupine + PyAudio each cycle so resources
+    are fully released while the conversation is active.
 
+    FUTURE FW integration: while this function is blocking, firmware
+    should be in IDLE mode:
+      - Servo PWM disabled (arms free-moving, no torque, lower power draw)
+      - MPU I2C disabled (no motion/gesture reads needed while idle)
+      - Heart rate sensor powered down (no reads until conversation starts)
+    Once this function returns (wake word detected), the caller should
+    transition to ACTIVE so firmware powers everything back on.
+    """
+    if not PORCUPINE_ACCESS_KEY:
+        raise RuntimeError("PORCUPINE_ACCESS_KEY not found in environment (.env)")
 
-def get_next_audio_frame():
-    pcm = audio_stream.read(porcupine.frame_length)
-    pcm = struct.unpack_from("h" * porcupine.frame_length, pcm)
-    return pcm
+    porcupine = pvporcupine.create(
+        access_key=PORCUPINE_ACCESS_KEY,
+        keyword_paths=["tt/brain/models/wake_model_hey_ted.ppn"],
+    )
 
+    paud = pyaudio.PyAudio()
+    audio_stream = paud.open(
+        rate=porcupine.sample_rate,
+        channels=1,
+        format=pyaudio.paInt16,
+        input=True,
+        frames_per_buffer=porcupine.frame_length,
+    )
 
-print("Listening for wakeword...")
+    print("Listening for wakeword...")
 
-# running here
-try:
-    while True:
-        audio_frame = get_next_audio_frame()
-        keyword_index = porcupine.process(audio_frame)
-        if keyword_index >= 0:
-            play_audio()
-            break
-
-# when turned off
-finally:
-    audio_stream.close()
-    paud.terminate()
-    porcupine.delete()
+    try:
+        while True:
+            pcm = audio_stream.read(porcupine.frame_length)
+            pcm = struct.unpack_from("h" * porcupine.frame_length, pcm)
+            if porcupine.process(pcm) >= 0:
+                print("Wake word detected!")
+                return
+    finally:
+        audio_stream.close()
+        paud.terminate()
+        porcupine.delete()

@@ -13,6 +13,7 @@ class RealtimeSocket:
         self.ws = None
         self.on_msg = on_msg
         self._stop_event = threading.Event()
+        self.done_event = threading.Event()  # Set when the connection is fully closed
         self.lock = threading.Lock()
 
     def connect(self):
@@ -36,6 +37,8 @@ class RealtimeSocket:
             except Exception as e:
                 print("Receive error:", e)
                 break
+        # Signal that the connection is done (server closed, error, or manual stop)
+        self.done_event.set()
 
     def send(self, obj: dict):
         try:
@@ -45,6 +48,13 @@ class RealtimeSocket:
             print("Send error:", e)
 
     def close(self):
+        # FUTURE FW integration: when the websocket closes, the system should
+        # transition to IDLE. At that point, send a serial command to the
+        # firmware (e.g. "IDLE\n") to:
+        #   - Cut PWM signal to servos so arms go free-moving (no holding torque)
+        #   - Disable I2C communication to the MPU (accelerometer/gyro)
+        #   - Disable I2C/analog reads from the heart rate sensor
+        # This reduces power draw and wear while waiting for the next wake word.
         self._stop_event.set()
         try:
             self.ws.send_close()
