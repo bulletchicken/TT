@@ -1,5 +1,7 @@
 # TED 🧸
 
+🎥 **[26-second demo video](https://youtu.be/Qu0fmnFuss0)**
+
 TED is a real-time, voice-first AI teddy bear that talks back *just enough* — but the architecture is the real star: streaming audio I/O, model-driven tool calls, and a long-term memory system backed by Supabase + pgvector.
 
 ---
