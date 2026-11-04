@@ -48,6 +48,13 @@ impl RateCv {
         }
     }
 
+    /// Back to the `state=None` starting point.
+    pub fn reset(&mut self) {
+        self.d = -self.outrate;
+        self.prev = 0;
+        self.cur = 0;
+    }
+
     /// `(d, prev, cur)`, the values audioop packs into its state tuple.
     pub fn state(&self) -> (i32, i32, i32) {
         (self.d, self.prev, self.cur)
@@ -134,6 +141,9 @@ mod tests {
         rc.process(&pcm(&[3, 6]), &mut out);
         assert_eq!(samples(&out), [3, 4, 5, 6]);
         assert_eq!(rc.state(), (-1, 3 << 16, 6 << 16));
+
+        rc.reset();
+        assert_eq!(rc.state(), (-3, 0, 0));
     }
 
     #[test]

@@ -12,12 +12,13 @@ use pyo3::types::{PyBytes, PyDict};
 use crate::dsp;
 use crate::pa::{self, CallbackStats, Direction, Stream};
 use crate::ring::Ring;
+use crate::stats_dict;
 
 /// -5 dB, applied to the mic while TTS is playing (same factor as Python).
 const DUCK_FACTOR: f64 = 0.5623;
 /// `pyaudio.paInt16`, the only sample format the pipeline uses.
-pub const PA_INT16: u32 = 8;
-pub const PA_CONTINUE: i32 = 0;
+const PA_INT16: u32 = 8;
+const PA_CONTINUE: i32 = 0;
 /// The Python buffers are unbounded; these rings hold this much audio.
 pub const TTS_BUFFER_SECONDS: usize = 300;
 pub const MIC_BUFFER_SECONDS: usize = 60;
@@ -73,16 +74,6 @@ impl pa::Callback for Speaker {
     fn process(&mut self, _input: &[u8], output: &mut [u8]) {
         self.0.render(output);
     }
-}
-
-pub fn stats_dict<'py>(py: Python<'py>, stats: &CallbackStats) -> PyResult<Bound<'py, PyDict>> {
-    let s = stats.snapshot();
-    let d = PyDict::new(py);
-    d.set_item("callbacks", s.calls)?;
-    d.set_item("xruns", s.xruns)?;
-    d.set_item("mean_us", s.mean_us)?;
-    d.set_item("max_us", s.max_us)?;
-    Ok(d)
 }
 
 /// Drop-in replacement for `tt.utils.audio_interface_openai.AudioIO`.

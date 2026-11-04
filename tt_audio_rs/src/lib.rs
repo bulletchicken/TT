@@ -2,13 +2,14 @@
 //! exposed to Python through PyO3. See README.md.
 
 mod dsp;
+mod elevenlabs_io;
 mod openai_io;
 mod pa;
 mod ring;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyDict};
 
 type RatecvState = (i32, ((i32, i32),));
 
@@ -24,6 +25,16 @@ fn check_whole_frames(fragment: &[u8]) -> PyResult<()> {
         return Err(PyValueError::new_err("not a whole number of frames"));
     }
     Ok(())
+}
+
+fn stats_dict<'py>(py: Python<'py>, stats: &pa::CallbackStats) -> PyResult<Bound<'py, PyDict>> {
+    let s = stats.snapshot();
+    let d = PyDict::new(py);
+    d.set_item("callbacks", s.calls)?;
+    d.set_item("xruns", s.xruns)?;
+    d.set_item("mean_us", s.mean_us)?;
+    d.set_item("max_us", s.max_us)?;
+    Ok(d)
 }
 
 /// Drop-in for `audioop.mul(fragment, width, factor)` with 16-bit samples.
@@ -73,6 +84,8 @@ fn ratecv<'py>(
 
 #[pymodule]
 mod tt_audio_rs {
+    #[pymodule_export]
+    use super::elevenlabs_io::ElevenLabsAudio;
     #[pymodule_export]
     use super::openai_io::AudioIO;
     #[pymodule_export]
