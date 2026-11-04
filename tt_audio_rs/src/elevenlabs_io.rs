@@ -131,7 +131,7 @@ enum State {
 ///
 /// Like the ElevenLabs SDK's own usage, an instance is started once and
 /// stopped once.
-#[pyclass(frozen)]
+#[pyclass(frozen, module = "tt_audio_rs")]
 pub struct ElevenLabsAudio {
     #[pyo3(get)]
     hw_rate: u32,

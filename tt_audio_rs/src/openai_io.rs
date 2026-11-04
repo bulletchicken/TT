@@ -81,7 +81,7 @@ impl pa::Callback for Speaker {
 /// The PortAudio callbacks run entirely in Rust and never touch the GIL;
 /// Python only interacts through `push_tts` and `read_mic_chunk`, which
 /// exchange audio with the callbacks through lock-free rings.
-#[pyclass(frozen)]
+#[pyclass(frozen, module = "tt_audio_rs")]
 pub struct AudioIO {
     #[pyo3(get)]
     chunk_size: usize,
