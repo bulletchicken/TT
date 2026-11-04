@@ -6,10 +6,7 @@ Each handler receives (conv, msg) where:
 - msg: The message dict from the API
 """
 
-from tt.brain.handlers.audio import (
-    on_audio_delta,
-    on_audio_done,
-)
+from tt.brain.handlers.audio import on_audio_done
 from tt.brain.handlers.transcript import (
     on_ai_transcript_delta,
     on_ai_transcript_done,
@@ -23,11 +20,11 @@ from tt.brain.handlers.websocket_tool_calls import (
 
 
 # Handler registry: maps event type -> handler function
+# (model audio arrives on the WebRTC media track, not as events)
 HANDLERS = {
-    "response.audio.delta": on_audio_delta,
-    "response.audio.done": on_audio_done,
-    "response.audio_transcript.delta": on_ai_transcript_delta,
-    "response.audio_transcript.done": on_ai_transcript_done,
+    "response.output_audio.done": on_audio_done,
+    "response.output_audio_transcript.delta": on_ai_transcript_delta,
+    "response.output_audio_transcript.done": on_ai_transcript_done,
     "conversation.item.input_audio_transcription.completed": on_user_transcript_completed,
     "conversation.item.input_audio_transcription.failed": on_user_transcript_failed,
     "response.function_call_arguments.delta": on_function_call_args_delta,

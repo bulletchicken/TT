@@ -19,20 +19,20 @@ The codebase is laid out like a brain—because the responsibilities map cleanly
 
 - `TED/brain/prefrontal_cortex/` → real-time session control (streaming orchestration + state)
 - `TED/brain/hippocampus/` → memory formation + recall (yes, literally the memory folder)
-- `TED/brain/handlers/` → event routing (WebSocket streams, tool-call plumbing)
+- `TED/brain/handlers/` → event routing (realtime events, tool-call plumbing)
 - `TED/brain/tools/` → tool implementations (the actual “abilities”)
 - `TED/ears/` → wake word + audio entrypoints
-- `TED/utils/` → shared helpers (audio, WS utilities, misc glue)
+- `TED/utils/` → shared helpers (audio, WebRTC transport, misc glue)
 
 ---
 
 ## Real-time voice pipeline
-- Mic audio is streamed into **OpenAI Realtime**
+- Mic audio is streamed into **OpenAI Realtime** over **WebRTC** (Opus media track; JSON events ride the `oai-events` data channel)
 - The model streams back:
   - incremental **transcripts**
   - **speech audio** for low-latency playback
 
-Core file: `tt/brain/prefrontal_cortex/openai_realtime.py`
+Core files: `tt/brain/prefrontal_cortex/openai_realtime.py`, `tt/utils/realtime_webrtc.py`
 
 ---
 
@@ -40,7 +40,7 @@ Core file: `tt/brain/prefrontal_cortex/openai_realtime.py`
 TED’s tools are built like a mini “plugin system”:
 - **Register once** → tools become discoverable by the model
 - **Schema-driven** → tools expose names + argument shapes so calls are reliable
-- **Streaming tool calls** → tool-call events come over the WS, get parsed, executed, and results are sent back into the same live session
+- **Streaming tool calls** → tool-call events come over the WebRTC data channel, get parsed, executed, and results are sent back into the same live session
 - **Threaded execution** → tools run without blocking audio/transcript streaming
 
 Core files:
@@ -82,14 +82,13 @@ Why cosine is usually the move:
 
 ## Concurrency (so it stays responsive)
 TED keeps the session snappy by separating concerns into independent loops/threads:
-- mic streaming loop
-- WebSocket receive loop (events + tool calls)
+- WebRTC loop (mic + speech media tracks, data-channel events + tool calls)
 - tool execution threads (so long-running tools don’t stall audio)
 
 ---
 
 ## Key files
-- Realtime session: `tt/brain/prefrontal_cortex/openai_realtime.py`
+- Realtime session: `tt/brain/prefrontal_cortex/openai_realtime.py`, `tt/utils/realtime_webrtc.py` (WebRTC transport)
 - Tool plumbing: `tt/brain/handlers/tools_plug.py`, `tt/brain/handlers/websocket_tool_calls.py`
 - Memory: `tt/brain/hippocampus/memorize.py`, `tt/brain/hippocampus/recall.py`
 - Wake word: `tt/ears/wakeword_start.py`
