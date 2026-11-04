@@ -2,6 +2,7 @@
 //! exposed to Python through PyO3. See README.md.
 
 mod dsp;
+mod openai_io;
 mod pa;
 mod ring;
 
@@ -72,6 +73,8 @@ fn ratecv<'py>(
 
 #[pymodule]
 mod tt_audio_rs {
+    #[pymodule_export]
+    use super::openai_io::AudioIO;
     #[pymodule_export]
     use super::{mul, ratecv};
 }

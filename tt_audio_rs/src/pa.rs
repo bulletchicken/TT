@@ -9,6 +9,10 @@ use std::ffi::{CStr, c_char, c_int, c_ulong, c_void};
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr;
+use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering::Relaxed;
+use std::time::Instant;
 
 type PaError = c_int;
 type PaDeviceIndex = c_int;
@@ -51,12 +55,13 @@ const PA_CLIP_OFF: c_ulong = 0x1;
 const PA_CONTINUE: c_int = 0;
 const PA_ABORT: c_int = 2;
 
+/// Status bit: input data was discarded because a callback ran late.
+const INPUT_OVERFLOW: c_ulong = 0x2;
+/// Status bit: output had a gap because a callback ran late.
+const OUTPUT_UNDERFLOW: c_ulong = 0x4;
+
 /// Let PortAudio pick the host's buffer size (PyAudio's default).
 pub const FRAMES_PER_BUFFER_UNSPECIFIED: u32 = 0;
-/// `status` bit: input data was discarded because the callback ran late.
-pub const INPUT_OVERFLOW: c_ulong = 0x2;
-/// `status` bit: output had a gap because the callback ran late.
-pub const OUTPUT_UNDERFLOW: c_ulong = 0x4;
 
 unsafe extern "C" {
     fn Pa_Initialize() -> PaError;
@@ -152,9 +157,55 @@ pub fn default_output_rate() -> Result<f64, Error> {
 /// Processes one buffer of mono 16-bit audio on PortAudio's real-time thread.
 /// For input streams `input` holds the captured audio and `output` is empty;
 /// for output streams it's the other way around and `output` must be filled.
-/// `status` carries PortAudio's overflow/underflow flags.
 pub trait Callback: Send + 'static {
-    fn process(&mut self, input: &[u8], output: &mut [u8], status: c_ulong);
+    fn process(&mut self, input: &[u8], output: &mut [u8]);
+}
+
+/// Per-stream counters kept by the real-time thread: how many callbacks ran,
+/// how long they took, and how many arrived with PortAudio's xrun flag set
+/// (input overflow / output underflow: audio was lost or had a gap).
+#[derive(Default)]
+pub struct CallbackStats {
+    calls: AtomicU64,
+    xruns: AtomicU64,
+    busy_ns: AtomicU64,
+    max_busy_ns: AtomicU64,
+}
+
+pub struct StatsSnapshot {
+    pub calls: u64,
+    pub xruns: u64,
+    pub mean_us: f64,
+    pub max_us: f64,
+}
+
+impl CallbackStats {
+    fn record(&self, started: Instant, xrun: bool) {
+        let ns = started.elapsed().as_nanos() as u64;
+        self.calls.fetch_add(1, Relaxed);
+        self.busy_ns.fetch_add(ns, Relaxed);
+        self.max_busy_ns.fetch_max(ns, Relaxed);
+        if xrun {
+            self.xruns.fetch_add(1, Relaxed);
+        }
+    }
+
+    pub fn snapshot(&self) -> StatsSnapshot {
+        let calls = self.calls.load(Relaxed);
+        StatsSnapshot {
+            calls,
+            xruns: self.xruns.load(Relaxed),
+            mean_us: self.busy_ns.load(Relaxed) as f64 / calls.max(1) as f64 / 1e3,
+            max_us: self.max_busy_ns.load(Relaxed) as f64 / 1e3,
+        }
+    }
+}
+
+/// What PortAudio's user_data points at.
+struct Registered<C> {
+    callback: C,
+    stats: Arc<CallbackStats>,
+    xrun_flag: c_ulong,
 }
 
 unsafe extern "C" fn trampoline<C: Callback>(
@@ -165,11 +216,12 @@ unsafe extern "C" fn trampoline<C: Callback>(
     status: c_ulong,
     user_data: *mut c_void,
 ) -> c_int {
+    let started = Instant::now();
     let len = frame_count as usize * 2;
     // SAFETY: PortAudio hands us frame_count frames of mono int16 in each
     // non-null buffer, plus the user_data pointer registered in Stream::open,
     // which stays valid until the stream is closed.
-    let (input, output, callback) = unsafe {
+    let (input, output, registered) = unsafe {
         let input: &[u8] = if input.is_null() {
             &[]
         } else {
@@ -180,12 +232,15 @@ unsafe extern "C" fn trampoline<C: Callback>(
         } else {
             std::slice::from_raw_parts_mut(output.cast(), len)
         };
-        (input, output, &mut *user_data.cast::<C>())
+        (input, output, &mut *user_data.cast::<Registered<C>>())
     };
     // A panic must not unwind into C. Stop the stream instead, the way PyAudio
     // aborts when a Python callback raises.
-    match catch_unwind(AssertUnwindSafe(|| callback.process(input, &mut *output, status))) {
-        Ok(()) => PA_CONTINUE,
+    match catch_unwind(AssertUnwindSafe(|| registered.callback.process(input, &mut *output))) {
+        Ok(()) => {
+            registered.stats.record(started, status & registered.xrun_flag != 0);
+            PA_CONTINUE
+        }
         Err(_) => {
             output.fill(0);
             PA_ABORT
@@ -213,6 +268,7 @@ impl Stream {
         direction: Direction,
         rate: u32,
         frames_per_buffer: u32,
+        stats: Arc<CallbackStats>,
         callback: C,
     ) -> Result<Self, Error> {
         let init = Init::new()?;
@@ -227,11 +283,12 @@ impl Stream {
             },
             host_api_specific_stream_info: ptr::null_mut(),
         };
-        let (input, output) = match direction {
-            Direction::Input => (&raw const params, ptr::null()),
-            Direction::Output => (ptr::null(), &raw const params),
+        let (input, output, xrun_flag) = match direction {
+            Direction::Input => (&raw const params, ptr::null(), INPUT_OVERFLOW),
+            Direction::Output => (ptr::null(), &raw const params, OUTPUT_UNDERFLOW),
         };
-        let user_data = Box::into_raw(Box::new(callback)).cast::<c_void>();
+        let registered = Registered { callback, stats, xrun_flag };
+        let user_data = Box::into_raw(Box::new(registered)).cast::<c_void>();
         let mut raw = ptr::null_mut();
         // SAFETY: params outlive the call, and user_data stays valid until
         // Stream's Drop has closed the stream.
@@ -249,13 +306,13 @@ impl Stream {
         });
         if let Err(e) = opened {
             // SAFETY: the stream never opened, so PortAudio holds no pointer to it.
-            unsafe { free_box::<C>(user_data) };
+            unsafe { free_box::<Registered<C>>(user_data) };
             return Err(e);
         }
         let stream = Stream {
             raw,
             user_data,
-            free_user_data: free_box::<C>,
+            free_user_data: free_box::<Registered<C>>,
             _init: init,
         };
         // SAFETY: raw is an open stream; on failure Drop closes it.
@@ -292,7 +349,7 @@ mod tests {
     struct Recorder(Arc<Mutex<Vec<usize>>>);
 
     impl Callback for Recorder {
-        fn process(&mut self, input: &[u8], output: &mut [u8], _status: c_ulong) {
+        fn process(&mut self, input: &[u8], output: &mut [u8]) {
             output.fill(0); // silence
             self.0.lock().unwrap().push(input.len().max(output.len()));
         }
@@ -305,12 +362,15 @@ mod tests {
         assert!(default_output_rate().unwrap() > 0.0);
         for direction in [Direction::Output, Direction::Input] {
             let sizes = Arc::new(Mutex::new(Vec::new()));
-            let stream = Stream::open(direction, 24000, 1024, Recorder(Arc::clone(&sizes))).unwrap();
+            let stats = Arc::new(CallbackStats::default());
+            let recorder = Recorder(Arc::clone(&sizes));
+            let stream = Stream::open(direction, 24000, 1024, Arc::clone(&stats), recorder).unwrap();
             std::thread::sleep(Duration::from_millis(300));
             drop(stream);
             let sizes = sizes.lock().unwrap();
             assert!(sizes.len() >= 3, "only {} callbacks", sizes.len());
             assert!(sizes.iter().all(|&n| n == 1024 * 2));
+            assert_eq!(stats.snapshot().calls, sizes.len() as u64);
         }
     }
 }
