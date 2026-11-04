@@ -10,10 +10,14 @@ from tt.brain.handlers import find_and_run
 from tt.brain.handlers.conversation_log import ConversationLog
 from tt.brain.handlers.tools_plug import get_tool_definitions
 from tt.brain.temporal_lobe.prompts.ted_personality import INSTRUCTIONS
-from tt.config import OPENAI_API_KEY
+from tt.config import AUDIO_BACKEND, OPENAI_API_KEY
 from tt.state_manager import State, StateManager
-from tt.utils.audio_interface_openai import AudioIO
 from tt.utils.realtime_webrtc import RealtimeWebRTC
+
+if AUDIO_BACKEND == "rust":
+    from tt_audio_rs import AudioIO
+else:
+    from tt.utils.audio_interface_openai import AudioIO
 
 # -------------------------------------------------------------------
 # Config

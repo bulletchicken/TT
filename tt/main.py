@@ -6,9 +6,11 @@ Cycles through:  IDLE (wake word) → ACTIVE (conversation) → WINDING_DOWN →
 Usage:
     python -m tt.main                    # default: elevenlabs backend
     python -m tt.main --backend openai   # use OpenAI Realtime API
+    python -m tt.main --audio rust       # use the Rust audio pipeline (tt_audio_rs)
 """
 
 import argparse
+import os
 import sys
 
 from tt.state_manager import State, StateManager
@@ -64,7 +66,14 @@ def main():
         default="elevenlabs",
         help="Conversation backend to use (default: elevenlabs)",
     )
+    parser.add_argument(
+        "--audio",
+        choices=["python", "rust"],
+        help="Audio pipeline implementation (default: $TT_AUDIO_BACKEND, else python)",
+    )
     args = parser.parse_args()
+    if args.audio:
+        os.environ["TT_AUDIO_BACKEND"] = args.audio  # read by tt.config
     run(backend=args.backend)
 
 

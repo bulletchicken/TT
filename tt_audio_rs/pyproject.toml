@@ -1,0 +1,9 @@
+[build-system]
+requires = ["maturin>=1.16,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "tt_audio_rs"
+description = "Rust port of TT's audio pipeline"
+requires-python = ">=3.9"
+dynamic = ["version"]
