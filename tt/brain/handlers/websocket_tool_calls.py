@@ -77,10 +77,5 @@ def _execute_tool_call(conv, call_id: str, tool_name: str, parsed_args: dict):
         }
     )
 
-    # Request model to continue
-    conv.sock.send(
-        {
-            "type": "response.create",
-            "response": {"modalities": ["audio", "text"]},
-        }
-    )
+    # Request model to continue (session default output: audio + transcript)
+    conv.sock.send({"type": "response.create"})
