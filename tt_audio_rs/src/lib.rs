@@ -2,6 +2,7 @@
 //! exposed to Python through PyO3. See README.md.
 
 mod dsp;
+mod ring;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
