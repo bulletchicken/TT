@@ -46,5 +46,4 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.5.0
 uvicorn==0.38.0
-websocket-client==1.9.0
 websockets==15.0.1
