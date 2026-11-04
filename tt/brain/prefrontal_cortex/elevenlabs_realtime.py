@@ -5,11 +5,15 @@ import time
 from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import Conversation, ClientTools
 
-from tt.config import ELEVENLABS_AGENT_ID, ELEVENLABS_API_KEY
+from tt.config import AUDIO_BACKEND, ELEVENLABS_AGENT_ID, ELEVENLABS_API_KEY
 from tt.state_manager import State, StateManager
-from tt.utils.audio_interface import PyAudioInterface
 import tt.brain.tools  # Register tools on import
 from tt.brain.handlers.tools_plug import register_with_elevenlabs
+
+if AUDIO_BACKEND == "rust":
+    from tt.utils.audio_interface_rust import RustAudioInterface as AudioInterfaceImpl
+else:
+    from tt.utils.audio_interface import PyAudioInterface as AudioInterfaceImpl
 
 
 def _build_conversation():
@@ -29,7 +33,7 @@ def _build_conversation():
         requires_auth=bool(ELEVENLABS_API_KEY),
 
         # Use the custom audio interface (16 kHz input, 44.1 kHz output).
-        audio_interface=PyAudioInterface(),
+        audio_interface=AudioInterfaceImpl(),
 
         # Simple callbacks that print the conversation to the console.
         callback_agent_response=lambda response: print(f"Agent: {response}"),

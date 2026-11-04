@@ -1,0 +1,20 @@
+[package]
+name = "tt_audio_rs"
+version = "0.1.0"
+edition = "2024"
+description = "Rust port of TT's audio pipeline (mic capture, ducking, resampling, TTS playback)"
+publish = false
+
+[lib]
+name = "tt_audio_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.30.1", features = ["abi3-py39"] }
+
+[build-dependencies]
+pkg-config = "0.3.34"
+
+[profile.release]
+codegen-units = 1
+lto = true
