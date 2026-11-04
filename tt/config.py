@@ -25,6 +25,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Porcupine Configuration (for wake word detection)
 PORCUPINE_ACCESS_KEY = os.getenv("PORCUPINE_ACCESS_KEY")
 
+# Audio pipeline: "python" (default) or "rust" (tt_audio_rs, see tt_audio_rs/README.md)
+AUDIO_BACKEND = os.getenv("TT_AUDIO_BACKEND", "python")
+if AUDIO_BACKEND not in ("python", "rust"):
+    raise RuntimeError(f"TT_AUDIO_BACKEND must be 'python' or 'rust', got {AUDIO_BACKEND!r}")
+
 # Supabase Configuration
 SUPABASE_URL: str = _require_env("SUPABASE_URL")
 SUPABASE_KEY: str = _require_env("SUPABASE_KEY")
